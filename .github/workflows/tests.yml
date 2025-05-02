@@ -1,0 +1,53 @@
+name: Testing
+
+on:
+  push:
+    branches: 
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    permissions: write-all
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Compile Java files
+      run: |
+        javac -d out -cp "lib/junit-platform-console-standalone-1.11.3.jar" src/*.java
+
+    - name: Run Tests
+      run: |
+        java -jar 'lib/junit-platform-console-standalone-1.11.3.jar' -cp out --select-class ZombiePlantTester > result.txt || true
+        if ! grep -q "Test run finished after" result.txt; then
+          echo "Could not run tests."
+          exit 1
+        fi
+        if [ -f result.txt ]; then
+          echo "## Test Results" >> report.txt
+          cat result.txt >> report.txt
+        fi
+
+    - name: Upload Test Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-report
+        path: report.txt
+
+    - name: Check Test Results
+      run: |
+        if grep -q "Failures" result.txt; then
+          echo "Tests failed. See result.txt for details."
+          exit 1
+        fi
+        
